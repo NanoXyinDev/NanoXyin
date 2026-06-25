@@ -1,24 +1,28 @@
 -- ============================================================
--- N4n0Xy1n FPS Flick v10.0 - TROLLZ HUB Style
+-- N4n0Xy1n FPS Flick v11.0 - TROLLZ HUB with Live Loading
 -- Target: [FPS] Flick by Groundwork (Roblox)
--- Mode: Solo FFA | No Teams | No WallCheck
--- UI: TROLLZ HUB v2 Style - AIM/ESP/CLOSE tabs
--- Bypass: namecallInstance detector | NO metatable hooks
+-- Mode: Solo FFA
+-- UI: TROLLZ HUB Style + Live Loading Screen
 -- - .... . / .... .- -.-. -.- / .. ... / .-. . .- .-..
 -- ============================================================
 
-repeat task.wait() until game:IsLoaded()
-task.wait(3)
+--// ============================================================
+--// PHASE 0: CRITICAL FIX - Parent ScreenGui correctly
+--// ============================================================
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 
---// Services
-local Players = game:FindFirstChildOfClass("Players")
-local RunService = game:FindFirstChildOfClass("RunService")
-local UserInputService = game:FindFirstChildOfClass("UserInputService")
-local Workspace = game:FindFirstChildOfClass("Workspace")
-local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
-local CoreGui = game:FindFirstChildOfClass("CoreGui")
+
+--// Wait for game
+repeat task.wait() until game:IsLoaded()
+task.wait(2)
 
 --// ============================================================
 --// CONFIG - ALL DISABLED BY DEFAULT
@@ -44,7 +48,7 @@ local Config = {
     },
     Menu = {
         Visible = true,
-        Tab = "AIM", -- AIM / ESP / NONE
+        Tab = "AIM",
         Keybind = Enum.KeyCode.Insert
     }
 }
@@ -69,7 +73,6 @@ local ESP_Objects = {}
 --// BYPASS ANTI-CHEAT (NO METATABLE HOOKS)
 --// ============================================================
 
---// Method 1: getgc + debug.setupvalue
 if getgc then
     for _, v in ipairs(getgc()) do
         if type(v) == "function" and islclosure(v) then
@@ -110,7 +113,6 @@ if getgc then
     end
 end
 
---// Method 2: Replace Player.Kick
 local _pk = LocalPlayer.Kick
 rawset(LocalPlayer, "Kick", function(self, msg)
     if self == LocalPlayer then
@@ -120,7 +122,6 @@ rawset(LocalPlayer, "Kick", function(self, msg)
     return _pk(self, msg)
 end)
 
---// Method 3: getconnections
 if getconnections then
     for _, obj in ipairs(game:GetDescendants()) do
         if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
@@ -137,7 +138,6 @@ if getconnections then
     end
 end
 
---// Method 4: Spoof require
 if getfenv then
     local env = getfenv(0)
     local _oldReq = env.require
@@ -150,14 +150,12 @@ if getfenv then
     end
 end
 
---// Method 5: Disable AC GUI
 for _, gui in ipairs(CoreGui:GetChildren()) do
     if gui.Name:match("Adonis") or gui.Name:match("Admin") or gui.Name:match("Anti") or gui.Name:match("Detector") then
         gui.Enabled = false
     end
 end
 
---// Method 6: Spoof all players Kick
 for _, p in ipairs(Players:GetPlayers()) do
     pcall(function()
         local old = p.Kick
@@ -169,26 +167,213 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 --// ============================================================
---// GUI - TROLLZ HUB v2 STYLE
+--// LOADING SCREEN - LIVE STYLE
 --// ============================================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TROLLZ_HUB_" .. tostring(math.random(1000,9999))
-ScreenGui.Parent = CoreGui
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
---// Main Frame (Centered, TROLLZ style)
+--// Main Loading GUI
+local LoadGui = Instance.new("ScreenGui")
+LoadGui.Name = "NX_Load_" .. tostring(math.random(1000,9999))
+LoadGui.Parent = CoreGui
+LoadGui.ResetOnSpawn = false
+LoadGui.DisplayOrder = 99999
+LoadGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+--// Background
+local LoadBg = Instance.new("Frame")
+LoadBg.Size = UDim2.new(1, 0, 1, 0)
+LoadBg.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+LoadBg.BorderSizePixel = 0
+LoadBg.ZIndex = 100
+LoadBg.Parent = LoadGui
+
+--// Center Container
+local LoadCenter = Instance.new("Frame")
+LoadCenter.Size = UDim2.new(0, 400, 0, 300)
+LoadCenter.Position = UDim2.new(0.5, -200, 0.5, -150)
+LoadCenter.BackgroundTransparency = 1
+LoadCenter.ZIndex = 101
+LoadCenter.Parent = LoadBg
+
+--// Title
+local LoadTitle = Instance.new("TextLabel")
+LoadTitle.Size = UDim2.new(1, 0, 0, 50)
+LoadTitle.Position = UDim2.new(0, 0, 0, 0)
+LoadTitle.BackgroundTransparency = 1
+LoadTitle.Text = "TROLLZ HUB"
+LoadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadTitle.Font = Enum.Font.GothamBlack
+LoadTitle.TextSize = 36
+LoadTitle.TextXAlignment = Enum.TextXAlignment.Center
+LoadTitle.ZIndex = 102
+LoadTitle.Parent = LoadCenter
+
+--// Subtitle
+local LoadSub = Instance.new("TextLabel")
+LoadSub.Size = UDim2.new(1, 0, 0, 25)
+LoadSub.Position = UDim2.new(0, 0, 0, 50)
+LoadSub.BackgroundTransparency = 1
+LoadSub.Text = "FPS FLICK v11.0"
+LoadSub.TextColor3 = Color3.fromRGB(0, 255, 136)
+LoadSub.Font = Enum.Font.GothamBold
+LoadSub.TextSize = 16
+LoadSub.TextXAlignment = Enum.TextXAlignment.Center
+LoadSub.ZIndex = 102
+LoadSub.Parent = LoadCenter
+
+--// Status Container
+local StatusContainer = Instance.new("Frame")
+StatusContainer.Size = UDim2.new(1, -40, 0, 120)
+StatusContainer.Position = UDim2.new(0, 20, 0, 100)
+StatusContainer.BackgroundTransparency = 1
+StatusContainer.ZIndex = 102
+StatusContainer.Parent = LoadCenter
+
+--// Status Lines (will be updated live)
+local StatusLines = {}
+for i = 1, 5 do
+    local line = Instance.new("TextLabel")
+    line.Size = UDim2.new(1, 0, 0, 22)
+    line.Position = UDim2.new(0, 0, 0, (i-1) * 24)
+    line.BackgroundTransparency = 1
+    line.Text = ""
+    line.TextColor3 = Color3.fromRGB(150, 150, 150)
+    line.Font = Enum.Font.Code
+    line.TextSize = 13
+    line.TextXAlignment = Enum.TextXAlignment.Center
+    line.ZIndex = 102
+    line.Parent = StatusContainer
+    StatusLines[i] = line
+end
+
+--// Progress Bar Background
+local ProgressBg = Instance.new("Frame")
+ProgressBg.Size = UDim2.new(1, -40, 0, 6)
+ProgressBg.Position = UDim2.new(0, 20, 0, 240)
+ProgressBg.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+ProgressBg.BorderSizePixel = 0
+ProgressBg.ZIndex = 102
+ProgressBg.Parent = LoadCenter
+
+local ProgressBgCorner = Instance.new("UICorner")
+ProgressBgCorner.CornerRadius = UDim.new(0, 3)
+ProgressBgCorner.Parent = ProgressBg
+
+--// Progress Bar Fill
+local ProgressFill = Instance.new("Frame")
+ProgressFill.Size = UDim2.new(0, 0, 1, 0)
+ProgressFill.BackgroundColor3 = Color3.fromRGB(0, 255, 136)
+ProgressFill.BorderSizePixel = 0
+ProgressFill.ZIndex = 103
+ProgressFill.Parent = ProgressBg
+
+local ProgressCorner = Instance.new("UICorner")
+ProgressCorner.CornerRadius = UDim.new(0, 3)
+ProgressCorner.Parent = ProgressFill
+
+--// Percentage Text
+local PercentText = Instance.new("TextLabel")
+PercentText.Size = UDim2.new(1, 0, 0, 20)
+PercentText.Position = UDim2.new(0, 0, 0, 255)
+PercentText.BackgroundTransparency = 1
+PercentText.Text = "0%"
+PercentText.TextColor3 = Color3.fromRGB(0, 255, 136)
+PercentText.Font = Enum.Font.GothamBold
+PercentText.TextSize = 14
+PercentText.TextXAlignment = Enum.TextXAlignment.Center
+PercentText.ZIndex = 102
+PercentText.Parent = LoadCenter
+
+--// Function to update loading status
+local function UpdateStatus(text, lineNum, color)
+    lineNum = lineNum or 1
+    color = color or Color3.fromRGB(150, 150, 150)
+    if StatusLines[lineNum] then
+        StatusLines[lineNum].Text = text
+        StatusLines[lineNum].TextColor3 = color
+    end
+end
+
+local function UpdateProgress(percent)
+    ProgressFill:TweenSize(UDim2.new(percent / 100, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
+    PercentText.Text = tostring(math.floor(percent)) .. "%"
+end
+
+--// ============================================================
+--// LIVE LOADING SEQUENCE
+--// ============================================================
+
+task.spawn(function()
+    --// Step 1
+    UpdateStatus("> INITIALIZING...", 1, Color3.fromRGB(0, 255, 136))
+    UpdateProgress(10)
+    task.wait(0.8)
+    
+    --// Step 2
+    UpdateStatus("> BYPASS ANTI-CHEAT", 2, Color3.fromRGB(0, 255, 136))
+    UpdateProgress(25)
+    task.wait(0.6)
+    
+    --// Step 3
+    UpdateStatus("> SCANNING GAME MEMORY...", 3, Color3.fromRGB(200, 200, 200))
+    UpdateProgress(40)
+    task.wait(0.8)
+    
+    --// Step 4
+    UpdateStatus("> UNLOCKING FEATURES...", 4, Color3.fromRGB(0, 255, 136))
+    UpdateProgress(60)
+    task.wait(0.6)
+    
+    --// Step 5
+    UpdateStatus("> NEUTRALIZING DETECTORS...", 5, Color3.fromRGB(200, 200, 200))
+    UpdateProgress(75)
+    task.wait(0.8)
+    
+    --// Step 6
+    UpdateStatus("> INJECTING MODULES...", 1, Color3.fromRGB(0, 255, 136))
+    UpdateStatus("> BYPASS ANTI-CHEAT", 2, Color3.fromRGB(0, 200, 100))
+    UpdateStatus("> SCANNING GAME MEMORY...", 3, Color3.fromRGB(0, 200, 100))
+    UpdateStatus("> UNLOCKING FEATURES...", 4, Color3.fromRGB(0, 200, 100))
+    UpdateStatus("> NEUTRALIZING DETECTORS...", 5, Color3.fromRGB(0, 200, 100))
+    UpdateProgress(90)
+    task.wait(0.5)
+    
+    --// Step 7
+    UpdateStatus("> READY!", 1, Color3.fromRGB(0, 255, 136))
+    UpdateStatus("> BYPASS ANTI-CHEAT", 2, Color3.fromRGB(0, 200, 100))
+    UpdateStatus("> SCANNING GAME MEMORY...", 3, Color3.fromRGB(0, 200, 100))
+    UpdateStatus("> UNLOCKING FEATURES...", 4, Color3.fromRGB(0, 200, 100))
+    UpdateStatus("> NEUTRALIZING DETECTORS...", 5, Color3.fromRGB(0, 200, 100))
+    UpdateProgress(100)
+    task.wait(0.8)
+    
+    --// Fade out loading
+    LoadBg:TweenPosition(UDim2.new(0, 0, -1, 0), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.6, true, function()
+        LoadGui:Destroy()
+    end)
+end)
+
+--// ============================================================
+--// MAIN MENU - TROLLZ HUB STYLE
+--// ============================================================
+
+local MenuGui = Instance.new("ScreenGui")
+MenuGui.Name = "TROLLZ_MENU_" .. tostring(math.random(1000,9999))
+MenuGui.Parent = CoreGui
+MenuGui.ResetOnSpawn = false
+MenuGui.DisplayOrder = 1000
+MenuGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+--// Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "Main"
-MainFrame.Size = UDim2.new(0, 350, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(26, 31, 46) -- Dark navy
+MainFrame.Size = UDim2.new(0, 350, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -190)
+MainFrame.BackgroundColor3 = Color3.fromRGB(26, 31, 46)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+MainFrame.Parent = MenuGui
 
---// Corner radius
 local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 12)
 MainCorner.Parent = MainFrame
@@ -200,25 +385,22 @@ Title.Position = UDim2.new(0, 0, 0, 10)
 Title.BackgroundTransparency = 1
 Title.Text = "TROLLZ HUB v2"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 22
 Title.Parent = MainFrame
 
---// Top Button Container
+--// Top Buttons Container
 local TopContainer = Instance.new("Frame")
-TopContainer.Size = UDim2.new(1, -20, 0, 45)
+TopContainer.Size = UDim2.new(1, -20, 0, 40)
 TopContainer.Position = UDim2.new(0, 10, 0, 55)
 TopContainer.BackgroundTransparency = 1
 TopContainer.Parent = MainFrame
 
---// Top Button Layout (3 buttons, equal width)
-local ButtonWidth = (TopContainer.Size.X.Offset - 20) / 3
-
 --// AIM Button
 local AimButton = Instance.new("TextButton")
-AimButton.Size = UDim2.new(0, 100, 0, 40)
+AimButton.Size = UDim2.new(0, 100, 0, 38)
 AimButton.Position = UDim2.new(0, 0, 0, 0)
-AimButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
+AimButton.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
 AimButton.Text = "AIM"
 AimButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 AimButton.Font = Enum.Font.GothamBold
@@ -232,7 +414,7 @@ AimCorner.Parent = AimButton
 
 --// ESP Button
 local EspButton = Instance.new("TextButton")
-EspButton.Size = UDim2.new(0, 100, 0, 40)
+EspButton.Size = UDim2.new(0, 100, 0, 38)
 EspButton.Position = UDim2.new(0, 110, 0, 0)
 EspButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
 EspButton.Text = "ESP"
@@ -248,7 +430,7 @@ EspCorner.Parent = EspButton
 
 --// CLOSE Button
 local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 100, 0, 40)
+CloseButton.Size = UDim2.new(0, 100, 0, 38)
 CloseButton.Position = UDim2.new(0, 220, 0, 0)
 CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
 CloseButton.Text = "CLOSE"
@@ -262,14 +444,14 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 8)
 CloseCorner.Parent = CloseButton
 
---// Content Container (for toggles)
+--// Content Container
 local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -20, 1, -115)
+ContentContainer.Size = UDim2.new(1, -20, 1, -110)
 ContentContainer.Position = UDim2.new(0, 10, 0, 105)
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.Parent = MainFrame
 
---// Toggle Creator Function
+--// Toggle Creator
 local function CreateToggle(parent, text, configTable, configKey, yPos)
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Size = UDim2.new(1, 0, 0, 45)
@@ -293,7 +475,6 @@ local function CreateToggle(parent, text, configTable, configKey, yPos)
     ToggleLabel.TextXAlignment = Enum.TextXAlignment.Center
     ToggleLabel.Parent = ToggleFrame
     
-    --// Click area (invisible button over the frame)
     local ClickButton = Instance.new("TextButton")
     ClickButton.Size = UDim2.new(1, 0, 1, 0)
     ClickButton.BackgroundTransparency = 1
@@ -306,11 +487,6 @@ local function CreateToggle(parent, text, configTable, configKey, yPos)
         ToggleLabel.Text = text .. ": " .. (isOn and "ON" or "OFF")
         ToggleLabel.TextColor3 = isOn and Color3.fromRGB(0, 255, 136) or Color3.fromRGB(200, 200, 200)
         ToggleFrame.BackgroundColor3 = isOn and Color3.fromRGB(45, 55, 75) or Color3.fromRGB(35, 42, 60)
-        
-        --// Animation
-        ToggleFrame:TweenSize(UDim2.new(0.95, 0, 0, 43), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true, function()
-            ToggleFrame:TweenSize(UDim2.new(1, 0, 0, 45), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true)
-        end)
     end)
     
     ClickButton.MouseEnter:Connect(function()
@@ -322,10 +498,10 @@ local function CreateToggle(parent, text, configTable, configKey, yPos)
         ToggleFrame.BackgroundColor3 = isOn and Color3.fromRGB(45, 55, 75) or Color3.fromRGB(35, 42, 60)
     end)
     
-    return ToggleFrame, ToggleLabel
+    return ToggleFrame
 end
 
---// AIM Tab Content
+--// AIM Tab
 local AimTab = Instance.new("Frame")
 AimTab.Size = UDim2.new(1, 0, 1, 0)
 AimTab.BackgroundTransparency = 1
@@ -336,7 +512,7 @@ CreateToggle(AimTab, "Aimbot", Config.Aimbot, "Enabled", 0)
 CreateToggle(AimTab, "FOV", Config.Aimbot, "ShowFOV", 55)
 CreateToggle(AimTab, "Auto Fire", Config.Aimbot, "AutoFire", 110)
 
---// ESP Tab Content
+--// ESP Tab
 local EspTab = Instance.new("Frame")
 EspTab.Size = UDim2.new(1, 0, 1, 0)
 EspTab.BackgroundTransparency = 1
@@ -348,19 +524,14 @@ CreateToggle(EspTab, "ESP Name", Config.ESP, "Names", 55)
 CreateToggle(EspTab, "ESP Distance", Config.ESP, "Distance", 110)
 CreateToggle(EspTab, "ESP Line", Config.ESP, "Tracers", 165)
 
---// Tab Switching Function
+--// Tab Switching
 local function SwitchTab(tab)
     Config.Menu.Tab = tab
-    
-    --// Reset all button colors
     AimButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
     EspButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
-    
-    --// Hide all tabs
     AimTab.Visible = false
     EspTab.Visible = false
     
-    --// Show selected
     if tab == "AIM" then
         AimButton.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
         AimTab.Visible = true
@@ -370,54 +541,31 @@ local function SwitchTab(tab)
     end
 end
 
---// Button Events
-AimButton.MouseButton1Click:Connect(function()
-    SwitchTab("AIM")
-end)
+AimButton.MouseButton1Click:Connect(function() SwitchTab("AIM") end)
+EspButton.MouseButton1Click:Connect(function() SwitchTab("ESP") end)
+CloseButton.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
 
-EspButton.MouseButton1Click:Connect(function()
-    SwitchTab("ESP")
-end)
-
-CloseButton.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-end)
-
---// Hover effects for top buttons
 AimButton.MouseEnter:Connect(function()
-    if Config.Menu.Tab ~= "AIM" then
-        AimButton.BackgroundColor3 = Color3.fromRGB(60, 70, 90)
-    end
+    if Config.Menu.Tab ~= "AIM" then AimButton.BackgroundColor3 = Color3.fromRGB(60, 70, 90) end
 end)
 AimButton.MouseLeave:Connect(function()
-    if Config.Menu.Tab ~= "AIM" then
-        AimButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
-    end
+    if Config.Menu.Tab ~= "AIM" then AimButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75) end
 end)
 
 EspButton.MouseEnter:Connect(function()
-    if Config.Menu.Tab ~= "ESP" then
-        EspButton.BackgroundColor3 = Color3.fromRGB(60, 70, 90)
-    end
+    if Config.Menu.Tab ~= "ESP" then EspButton.BackgroundColor3 = Color3.fromRGB(60, 70, 90) end
 end)
 EspButton.MouseLeave:Connect(function()
-    if Config.Menu.Tab ~= "ESP" then
-        EspButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
-    end
+    if Config.Menu.Tab ~= "ESP" then EspButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75) end
 end)
 
-CloseButton.MouseEnter:Connect(function()
-    CloseButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-end)
-CloseButton.MouseLeave:Connect(function()
-    CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-end)
+CloseButton.MouseEnter:Connect(function() CloseButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end)
+CloseButton.MouseLeave:Connect(function() CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50) end)
 
---// Set initial tab
 SwitchTab("AIM")
 
 --// ============================================================
---// UTILITY FUNCTIONS
+--// UTILITY & MAIN LOOP
 --// ============================================================
 local function _gc(p) return p.Character end
 local function _gh(c) return c and c:FindFirstChildOfClass("Humanoid") end
@@ -433,15 +581,9 @@ local function _w2s(p)
 end
 local function _dst(a, b) return (a - b).Magnitude end
 
---// ESP Creation
 local function _ce(p)
     if p == LocalPlayer then return end
-    local e = {
-        b = D.new("Square"),
-        n = D.new("Text"),
-        d = D.new("Text"),
-        t = D.new("Line")
-    }
+    local e = {b = D.new("Square"), n = D.new("Text"), d = D.new("Text"), t = D.new("Line")}
     e.b.Visible = false; e.b.Thickness = 1; e.b.Filled = false; e.b.Transparency = 1
     e.n.Visible = false; e.n.Size = 12; e.n.Center = true; e.n.Outline = true
     e.d.Visible = false; e.d.Size = 10; e.d.Center = true; e.d.Outline = true
@@ -450,12 +592,9 @@ local function _ce(p)
     return e
 end
 
---// Update ESP
 local function _ue()
     for p, e in pairs(ESP_Objects) do
-        local c = _gc(p)
-        local h = _gh(c)
-        local hd = _ghd(c)
+        local c = _gc(p); local h = _gh(c); local hd = _ghd(c)
         if not c or not h or not hd or not _ia(p) then
             e.b.Visible = false; e.n.Visible = false; e.d.Visible = false; e.t.Visible = false
             continue
@@ -477,33 +616,20 @@ local function _ue()
         local w, h2 = sz.X * 1.5, sz.Y * 1.5
         local tl = Vector2.new(hp.X - w/2, hp.Y - h2/2)
         if Config.ESP.Boxes then
-            e.b.Size = Vector2.new(w, h2)
-            e.b.Position = tl
-            e.b.Color = Color3.fromRGB(255, 0, 0)
-            e.b.Visible = true
+            e.b.Size = Vector2.new(w, h2); e.b.Position = tl; e.b.Color = Color3.fromRGB(255, 0, 0); e.b.Visible = true
         else e.b.Visible = false end
         if Config.ESP.Names then
-            e.n.Text = p.Name
-            e.n.Position = Vector2.new(hp.X, tl.Y - 12)
-            e.n.Color = Color3.fromRGB(255,255,255)
-            e.n.Visible = true
+            e.n.Text = p.Name; e.n.Position = Vector2.new(hp.X, tl.Y - 12); e.n.Color = Color3.fromRGB(255,255,255); e.n.Visible = true
         else e.n.Visible = false end
         if Config.ESP.Distance then
-            e.d.Text = string.format("[%.1fm]", d)
-            e.d.Position = Vector2.new(hp.X, tl.Y + h2 + 2)
-            e.d.Color = Color3.fromRGB(200,200,200)
-            e.d.Visible = true
+            e.d.Text = string.format("[%.1fm]", d); e.d.Position = Vector2.new(hp.X, tl.Y + h2 + 2); e.d.Color = Color3.fromRGB(200,200,200); e.d.Visible = true
         else e.d.Visible = false end
         if Config.ESP.Tracers then
-            e.t.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-            e.t.To = Vector2.new(rp2.X, rp2.Y)
-            e.t.Color = Color3.fromRGB(200,200,200)
-            e.t.Visible = true
+            e.t.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y); e.t.To = Vector2.new(rp2.X, rp2.Y); e.t.Color = Color3.fromRGB(200,200,200); e.t.Visible = true
         else e.t.Visible = false end
     end
 end
 
---// Aimbot - Solo FFA
 local function _ca()
     local cp, cd = nil, math.huge
     local mp = Vector2.new(Mouse.X, Mouse.Y)
@@ -549,9 +675,6 @@ local function _af(t)
     end
 end
 
---// ============================================================
---// MAIN LOOP
---// ============================================================
 local _at = nil
 
 RunService.Heartbeat:Connect(function()
@@ -573,7 +696,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
---// Player handlers
 Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then _ce(p) end end)
 Players.PlayerRemoving:Connect(function(p)
     local e = ESP_Objects[p]
@@ -582,7 +704,6 @@ end)
 
 for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then _ce(p) end end
 
---// Keybinds
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Config.Menu.Keybind then
@@ -590,9 +711,8 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
---// Cleanup
 CoreGui.ChildRemoved:Connect(function(c)
-    if c == ScreenGui then
+    if c == MenuGui then
         for _, e in pairs(ESP_Objects) do e.b:Remove(); e.n:Remove(); e.d:Remove(); e.t:Remove() end
         FOVCircle:Remove()
     end
@@ -605,7 +725,6 @@ print([[
  / /|  /| |/ /| |/ |/ /    / /    
 /_/ |_/ |___/ |__/|__/    /_/     
                                    
-N4n0Xy1n v10.0 | TROLLZ HUB Style
-UI: ACTIVE | All Features OFF
-INSERT: Toggle Menu | E: Aim
+N4n0Xy1n v11.0 | TROLLZ HUB Style
+Live Loading: ACTIVE | Menu: INSERT
 ]])
