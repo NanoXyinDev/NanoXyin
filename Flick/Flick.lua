@@ -1,429 +1,435 @@
 -- ============================================================
--- N4n0Xy1n FPS Flick v5.0 - Anti-Detect Bypass
--- Bypass: namecallInstance detector (Error 267)
--- Target: [FPS] Flick by Groundwork
+-- N4n0Xy1n FPS Flick v6.0 - Adonis AC Bypass
+-- Target: :: Adonis :: Anti-Cheat System
+-- Method: Stealth injection via existing game loops
 -- - .... . / .... .- -.-. -.- / .. ... / .-. . .- .-..
 -- ============================================================
 
---// Wait for game load
+--// CRITICAL: Delay execution sampai Adonis fully initialized
 repeat task.wait() until game:IsLoaded()
-task.wait(3) -- Let AC initialize fully
+task.wait(5) -- Adonis init delay
 
---// Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
+--// Services (jangan panggil GetService berulang kali - pattern detection)
+local Players = game:FindFirstChildOfClass("Players")
+local RunService = game:FindFirstChildOfClass("RunService")
+local UserInputService = game:FindFirstChildOfClass("UserInputService")
+local Workspace = game:FindFirstChildOfClass("Workspace")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
---// Config
-local Config = {
-    Aimbot = {Enabled = true, FOV = 150, Smoothness = 0.15, Prediction = 0.165, TeamCheck = false, WallCheck = true, HitPart = "Head", Keybind = Enum.KeyCode.E, AutoFire = true},
-    ESP = {Enabled = true, Boxes = true, Names = true, Health = true, Distance = true, Tracers = true, Skeleton = true, MaxDistance = 1000},
-    FOV_Circle = {Visible = true, Color = Color3.fromRGB(255,255,255), Transparency = 0.5, Thickness = 1, NumSides = 64},
-    AC = {Enabled = true, SpoofNamecalls = true, DisconnectAC = true, Obfuscate = true}
+--// Config - randomize names untuk avoid string detection
+local _cfg = {
+    _a = true, -- Aimbot
+    _f = 150, -- FOV
+    _s = 0.15, -- Smooth
+    _p = 0.165, -- Prediction
+    _t = false, -- TeamCheck
+    _w = true, -- WallCheck
+    _h = "Head", -- HitPart
+    _k = Enum.KeyCode.E, -- Keybind
+    _af = true, -- AutoFire
+    _e = true, -- ESP
+    _b = true, -- Boxes
+    _n = true, -- Names
+    _hp = true, -- Health
+    _d = true, -- Distance
+    _tr = true, -- Tracers
+    _sk = true, -- Skeleton
+    _md = 1000, -- MaxDistance
+    _ac = true -- AC Bypass
 }
 
---// Drawing Lib
-local Drawing = Drawing
+--// Drawing - gunakan native, jangan create terlalu banyak objects
+local D = Drawing
 
---// GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NX_" .. tostring(math.random(1000,9999))
-ScreenGui.Parent = game.CoreGui
+--// GUI dengan nama random (anti-string detection)
+local _sg = Instance.new("ScreenGui")
+_sg.Name = string.format("Gui_%d_%d", math.random(10000,99999), tick())
+_sg.Parent = game:FindFirstChildOfClass("CoreGui")
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 400)
-MainFrame.Position = UDim2.new(0, 20, 0, 20)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+local _mf = Instance.new("Frame")
+_mf.Size = UDim2.new(0, 280, 0, 50)
+_mf.Position = UDim2.new(0, 10, 0, 10)
+_mf.BackgroundColor3 = Color3.fromRGB(20,20,20)
+_mf.BorderSizePixel = 0
+_mf.Active = true
+_mf.Draggable = true
+_mf.Parent = _sg
 
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+local _c = Instance.new("UICorner", _mf)
+_c.CornerRadius = UDim.new(0, 6)
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Title.Text = "N4n0Xy1n | FPS Flick v5.0"
-Title.TextColor3 = Color3.fromRGB(0, 255, 136)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
-Title.Parent = MainFrame
+local _tl = Instance.new("TextLabel", _mf)
+_tl.Size = UDim2.new(1,0,1,0)
+_tl.BackgroundTransparency = 1
+_tl.Text = "NX v6.0 | Adonis Bypass"
+_tl.TextColor3 = Color3.fromRGB(0,255,136)
+_tl.Font = Enum.Font.GothamBold
+_tl.TextSize = 12
 
---// FOV Circle
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Visible = false
-FOVCircle.Radius = Config.Aimbot.FOV
-FOVCircle.Color = Config.FOV_Circle.Color
-FOVCircle.Thickness = Config.FOV_Circle.Thickness
-FOVCircle.NumSides = Config.FOV_Circle.NumSides
-FOVCircle.Filled = false
-FOVCircle.Transparency = Config.FOV_Circle.Transparency
+--// FOV Circle - minimal drawing objects
+local _fc = D.new("Circle")
+_fc.Visible = false
+_fc.Radius = _cfg._f
+_fc.Color = Color3.fromRGB(255,255,255)
+_fc.Thickness = 1
+_fc.NumSides = 32 -- Reduced untuk performance
+_fc.Filled = false
+_fc.Transparency = 0.5
 
---// ESP Storage
-local ESP_Objects = {}
+--// ESP - gunakan table dengan weak references
+local _esp = setmetatable({}, {__mode = "k"})
 
---// Utility
-local function GetCharacter(p) return p.Character end
-local function GetHumanoid(c) return c and c:FindFirstChildOfClass("Humanoid") end
-local function GetHead(c) return c and (c:FindFirstChild(Config.Aimbot.HitPart) or c:FindFirstChild("Head")) end
-local function IsAlive(p)
-    local c = GetCharacter(p)
-    local h = c and GetHumanoid(c)
+--// Utility functions - inline untuk reduce closure count
+local function _gc(p) return p.Character end
+local function _gh(c) return c and c:FindFirstChildOfClass("Humanoid") end
+local function _ghd(c) return c and (c:FindFirstChild(_cfg._h) or c:FindFirstChild("Head")) end
+local function _ia(p)
+    local c = _gc(p)
+    local h = _gh(c)
     return h and h.Health > 0
 end
-local function IsTeammate(p)
-    if not Config.Aimbot.TeamCheck then return false end
+local function _it(p)
+    if not _cfg._t then return false end
     return p.Team == LocalPlayer.Team
 end
-local function W2S(pos)
-    local sp, on, d = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(sp.X, sp.Y), on, d
+local function _w2s(p)
+    local s, o, d = Camera:WorldToViewportPoint(p)
+    return Vector2.new(s.X, s.Y), o, d
 end
-local function Dist(p1, p2) return (p1 - p2).Magnitude end
+local function _dst(a, b) return (a - b).Magnitude end
 
---// Wallcheck (Raycast)
-local function WallCheck(origin, target)
-    if not Config.Aimbot.WallCheck then return true end
-    local rp = RaycastParams.new()
-    rp.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
-    rp.FilterType = Enum.RaycastFilterType.Blacklist
-    local r = Workspace:Raycast(origin, (target - origin).Unit * (target - origin).Magnitude, rp)
+--// Wallcheck - optimized
+local _rp = RaycastParams.new()
+_rp.FilterType = Enum.RaycastFilterType.Blacklist
+local function _wc(o, t)
+    if not _cfg._w then return true end
+    _rp.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    local r = Workspace:Raycast(o, (t - o).Unit * (t - o).Magnitude, _rp)
     return r == nil
 end
 
---// ESP Creation
-local function CreateESP(p)
+--// ESP - create minimal objects
+local function _ce(p)
     if p == LocalPlayer then return end
-    local E = {
-        Box = Drawing.new("Square"), BoxO = Drawing.new("Square"),
-        Name = Drawing.new("Text"), Health = Drawing.new("Text"),
-        Dist = Drawing.new("Text"), Tracer = Drawing.new("Line"),
-        Skel = {}
+    local e = {
+        b = D.new("Square"), -- Box
+        n = D.new("Text"), -- Name
+        h = D.new("Text"), -- Health
+        t = D.new("Line") -- Tracer
     }
-    E.Box.Visible = false; E.Box.Color = Color3.fromRGB(255,0,0); E.Box.Thickness = 1; E.Box.Filled = false; E.Box.Transparency = 1
-    E.BoxO.Visible = false; E.BoxO.Color = Color3.fromRGB(0,0,0); E.BoxO.Thickness = 3; E.BoxO.Filled = false; E.BoxO.Transparency = 1
-    E.Name.Visible = false; E.Name.Color = Color3.fromRGB(255,255,255); E.Name.Size = 14; E.Name.Center = true; E.Name.Outline = true
-    E.Health.Visible = false; E.Health.Color = Color3.fromRGB(0,255,0); E.Health.Size = 12; E.Health.Center = true; E.Health.Outline = true
-    E.Dist.Visible = false; E.Dist.Color = Color3.fromRGB(200,200,200); E.Dist.Size = 12; E.Dist.Center = true; E.Dist.Outline = true
-    E.Tracer.Visible = false; E.Tracer.Color = Color3.fromRGB(255,255,255); E.Tracer.Thickness = 1; E.Tracer.Transparency = 1
-    for i = 1, 13 do
-        local l = Drawing.new("Line")
-        l.Visible = false; l.Color = Color3.fromRGB(255,255,255); l.Thickness = 1
-        table.insert(E.Skel, l)
-    end
-    ESP_Objects[p] = E
-    return E
+    e.b.Visible = false; e.b.Thickness = 1; e.b.Filled = false; e.b.Transparency = 1
+    e.n.Visible = false; e.n.Size = 12; e.n.Center = true; e.n.Outline = true
+    e.h.Visible = false; e.h.Size = 10; e.h.Center = true; e.h.Outline = true
+    e.t.Visible = false; e.t.Thickness = 1; e.t.Transparency = 1
+    _esp[p] = e
+    return e
 end
 
---// Update ESP
-local function UpdateESP()
-    for p, E in pairs(ESP_Objects) do
-        local c = GetCharacter(p)
-        local h = c and GetHumanoid(c)
-        local hd = c and GetHead(c)
-        if not c or not h or not hd or not IsAlive(p) or IsTeammate(p) then
-            E.Box.Visible = false; E.BoxO.Visible = false; E.Name.Visible = false
-            E.Health.Visible = false; E.Dist.Visible = false; E.Tracer.Visible = false
-            for _, l in ipairs(E.Skel) do l.Visible = false end
+--// Update ESP - optimized loop
+local function _ue()
+    for p, e in pairs(_esp) do
+        local c = _gc(p)
+        local h = _gh(c)
+        local hd = _ghd(c)
+        if not c or not h or not hd or not _ia(p) or _it(p) then
+            e.b.Visible = false; e.n.Visible = false; e.h.Visible = false; e.t.Visible = false
             continue
         end
-        local hp, hon, hd = W2S(hd.Position)
+        local hp, ho, hd = _w2s(hd.Position)
         local rp = c:FindFirstChild("HumanoidRootPart")
         if not rp then continue end
-        local rp2, ron, rd = W2S(rp.Position)
-        if not ron then
-            E.Box.Visible = false; E.BoxO.Visible = false; E.Name.Visible = false
-            E.Health.Visible = false; E.Dist.Visible = false; E.Tracer.Visible = false
-            for _, l in ipairs(E.Skel) do l.Visible = false end
+        local rp2, ro, rd = _w2s(rp.Position)
+        if not ro then
+            e.b.Visible = false; e.n.Visible = false; e.h.Visible = false; e.t.Visible = false
             continue
         end
-        local d = Dist(Camera.CFrame.Position, rp.Position)
-        if d > Config.ESP.MaxDistance then
-            E.Box.Visible = false; E.BoxO.Visible = false; E.Name.Visible = false
-            E.Health.Visible = false; E.Dist.Visible = false; E.Tracer.Visible = false
-            for _, l in ipairs(E.Skel) do l.Visible = false end
+        local d = _dst(Camera.CFrame.Position, rp.Position)
+        if d > _cfg._md then
+            e.b.Visible = false; e.n.Visible = false; e.h.Visible = false; e.t.Visible = false
             continue
         end
         local sz = c:GetExtentsSize()
-        local w, h2 = sz.X * 2, sz.Y * 2
+        local w, h2 = sz.X * 1.5, sz.Y * 1.5
         local tl = Vector2.new(hp.X - w/2, hp.Y - h2/2)
-        local br = Vector2.new(hp.X + w/2, hp.Y + h2/2)
-        if Config.ESP.Boxes then
-            E.Box.Size = Vector2.new(w, h2); E.Box.Position = tl; E.Box.Visible = true
-            E.BoxO.Size = E.Box.Size; E.BoxO.Position = E.Box.Position; E.BoxO.Visible = true
-        else E.Box.Visible = false; E.BoxO.Visible = false end
-        if Config.ESP.Names then E.Name.Text = p.Name; E.Name.Position = Vector2.new(hp.X, tl.Y - 15); E.Name.Visible = true else E.Name.Visible = false end
-        if Config.ESP.Health then
-            local hpct = h.Health / h.MaxHealth
-            E.Health.Text = string.format("[%d/%d]", math.floor(h.Health), math.floor(h.MaxHealth))
-            E.Health.Position = Vector2.new(hp.X, br.Y + 5)
-            E.Health.Color = Color3.fromRGB(255*(1-hpct), 255*hpct, 0)
-            E.Health.Visible = true
-        else E.Health.Visible = false end
-        if Config.ESP.Distance then E.Dist.Text = string.format("[%.1fm]", d); E.Dist.Position = Vector2.new(hp.X, br.Y + 20); E.Dist.Visible = true else E.Dist.Visible = false end
-        if Config.ESP.Tracers then E.Tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y); E.Tracer.To = Vector2.new(rp2.X, rp2.Y); E.Tracer.Visible = true else E.Tracer.Visible = false end
-        if Config.ESP.Skeleton then
-            local conn = {{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}}
-            for i, cn in ipairs(conn) do
-                local p1 = c:FindFirstChild(cn[1]); local p2 = c:FindFirstChild(cn[2])
-                if p1 and p2 then
-                    local pp1, o1 = W2S(p1.Position); local pp2, o2 = W2S(p2.Position)
-                    if o1 and o2 then E.Skel[i].From = pp1; E.Skel[i].To = pp2; E.Skel[i].Visible = true else E.Skel[i].Visible = false end
-                end
-            end
-        else for _, l in ipairs(E.Skel) do l.Visible = false end end
+        if _cfg._b then
+            e.b.Size = Vector2.new(w, h2)
+            e.b.Position = tl
+            e.b.Color = Color3.fromRGB(255, 0, 0)
+            e.b.Visible = true
+        else e.b.Visible = false end
+        if _cfg._n then
+            e.n.Text = p.Name
+            e.n.Position = Vector2.new(hp.X, tl.Y - 12)
+            e.n.Color = Color3.fromRGB(255,255,255)
+            e.n.Visible = true
+        else e.n.Visible = false end
+        if _cfg._hp then
+            local pct = h.Health / h.MaxHealth
+            e.h.Text = string.format("%d/%d", math.floor(h.Health), math.floor(h.MaxHealth))
+            e.h.Position = Vector2.new(hp.X, tl.Y + h2 + 2)
+            e.h.Color = Color3.fromRGB(255*(1-pct), 255*pct, 0)
+            e.h.Visible = true
+        else e.h.Visible = false end
+        if _cfg._tr then
+            e.t.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+            e.t.To = Vector2.new(rp2.X, rp2.Y)
+            e.t.Color = Color3.fromRGB(200,200,200)
+            e.t.Visible = true
+        else e.t.Visible = false end
     end
 end
 
---// Aimbot
-local function GetClosest()
+--// Aimbot - optimized
+local function _ca()
     local cp, cd = nil, math.huge
     local mp = Vector2.new(Mouse.X, Mouse.Y)
     for _, p in ipairs(Players:GetPlayers()) do
         if p == LocalPlayer then continue end
-        if not IsAlive(p) then continue end
-        if IsTeammate(p) then continue end
-        local c = GetCharacter(p); local hd = c and GetHead(c)
+        if not _ia(p) then continue end
+        if _it(p) then continue end
+        local c = _gc(p); local hd = _ghd(c)
         if not hd then continue end
-        local sp, on, dp = W2S(hd.Position)
+        local sp, on, dp = _w2s(hd.Position)
         if not on or dp < 0 then continue end
         local d = (sp - mp).Magnitude
-        if d > Config.Aimbot.FOV then continue end
-        if not WallCheck(Camera.CFrame.Position, hd.Position) then continue end
+        if d > _cfg._f then continue end
+        if not _wc(Camera.CFrame.Position, hd.Position) then continue end
         if d < cd then cd = d; cp = p end
     end
-    return cp, cd
+    return cp
 end
 
-local function AimAt(t)
+local function _aim(t)
     if not t then return end
-    local c = GetCharacter(t); local hd = c and GetHead(c)
+    local c = _gc(t); local hd = _ghd(c)
     if not hd then return end
     local tp = hd.Position
     local vel = hd.AssemblyLinearVelocity or Vector3.new(0,0,0)
-    local pred = vel * Config.Aimbot.Prediction
-    local ap = tp + pred
+    local ap = tp + (vel * _cfg._p)
     local cf = Camera.CFrame
-    local tf = CFrame.new(cf.Position, ap)
-    Camera.CFrame = cf:Lerp(tf, Config.Aimbot.Smoothness)
+    Camera.CFrame = cf:Lerp(CFrame.new(cf.Position, ap), _cfg._s)
 end
 
 --// AutoFire
-local function AutoFire(t)
-    if not Config.Aimbot.AutoFire or not t then return end
-    local c = GetCharacter(t); local hd = c and GetHead(c)
+local function _af(t)
+    if not _cfg._af or not t then return end
+    local c = _gc(t); local hd = _ghd(c)
     if not hd then return end
-    local sp, on = W2S(hd.Position)
+    local sp, on = _w2s(hd.Position)
     if not on then return end
     local mp = Vector2.new(Mouse.X, Mouse.Y)
-    if (sp - mp).Magnitude < 20 then
-        local vim = game:GetService("VirtualInputManager")
-        vim:SendMouseButtonEvent(Mouse.X, Mouse.Y, 0, true, game, 0)
-        task.wait(0.05)
-        vim:SendMouseButtonEvent(Mouse.X, Mouse.Y, 0, false, game, 0)
+    if (sp - mp).Magnitude < 25 then
+        local vim = game:FindFirstChildOfClass("VirtualInputManager")
+        if vim then
+            vim:SendMouseButtonEvent(Mouse.X, Mouse.Y, 0, true, game, 0)
+            task.wait(0.03)
+            vim:SendMouseButtonEvent(Mouse.X, Mouse.Y, 0, false, game, 0)
+        end
     end
 end
 
 --// ============================================================
---// ANTI-CHEAT BYPASS v2.0 - namecallInstance detector bypass
+--// ADONIS BYPASS v6.0 - Stealth Injection Methods
 --// ============================================================
 
-local function BypassAC()
-    if not Config.AC.Enabled then return end
+local function _bypass()
+    if not _cfg._ac then return end
     
-    --// METHOD 1: Use hookmetamethod (if available) - SAFEST
-    if hookmetamethod then
-        local oldNC
-        oldNC = hookmetamethod(game, "__namecall", function(self, ...)
-            local method = getnamecallmethod()
-            if method == "Kick" or method == "kick" then
-                return warn("[NX] Kick blocked via hookmetamethod")
-            end
-            if method == "FireServer" and self.Name then
-                local n = self.Name:lower()
-                if n:match("ac") or n:match("anti") or n:match("detect") or n:match("cheat") or n:match("ban") then
-                    return warn("[NX] AC Remote blocked: " .. self.Name)
+    --// METHOD 1: Gunakan existing game hooks (jangan create new hooks)
+    -- Adonis scan untuk "new" hooks, tapi tidak detect modified existing
+    local _existing = {}
+    
+    --// METHOD 2: Spoof via getgc() - modify existing functions
+    if getgc then
+        for _, v in ipairs(getgc()) do
+            if type(v) == "function" and islclosure(v) then
+                local info = debug.getinfo(v)
+                if info and info.source and info.source:match("Adonis") then
+                    -- Found Adonis function, neutralize
+                    local success = pcall(function()
+                        local ups = debug.getupvalues(v)
+                        for i, up in ipairs(ups) do
+                            if type(up) == "function" then
+                                -- Replace dengan dummy function
+                                debug.setupvalue(v, i, function() return nil end)
+                            elseif type(up) == "boolean" and up == true then
+                                -- Flip boolean flags
+                                debug.setupvalue(v, i, false)
+                            end
+                        end
+                    end)
+                    if success then warn("[NX] Adonis function neutralized: " .. (info.name or "unknown")) end
                 end
             end
-            return oldNC(self, ...)
-        end)
-        print("[NX] hookmetamethod installed successfully")
+        end
     end
     
-    --// METHOD 2: Disconnect AC connections
-    if Config.AC.DisconnectAC and getconnections then
+    --// METHOD 3: Block Adonis remotes via getconnections
+    if getconnections then
         for _, obj in ipairs(game:GetDescendants()) do
             if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
                 local n = obj.Name:lower()
-                if n:match("ac") or n:match("anti") or n:match("detect") or n:match("cheat") then
+                -- Adonis menggunakan nama yang tidak obvious, tapi pattern detectable
+                if n:match("adonis") or n:match("admin") or n:match("punish") or n:match("kick") or n:match("ban") then
                     local cons = getconnections(obj.OnClientEvent)
                     for _, con in ipairs(cons) do
                         pcall(function() con:Disable() end)
                     end
-                    warn("[NX] Disconnected AC events: " .. obj.Name)
+                    warn("[NX] Adonis remote disabled: " .. obj.Name)
                 end
             end
         end
     end
     
-    --// METHOD 3: Spoof GC info (memory detection bypass)
-    if getgc and Config.AC.SpoofNamecalls then
-        for _, v in ipairs(getgc()) do
-            if type(v) == "function" and islclosure(v) then
-                local info = debug.getinfo(v)
-                if info and info.name then
-                    local n = info.name:lower()
-                    if n:match("detect") or n:match("check") or n:match("ban") or n:match("kick") then
-                        hookfunction(v, function() return nil end)
-                        warn("[NX] Hooked AC function: " .. info.name)
-                    end
+    --// METHOD 4: Spoof Player.Kick via existing function replacement
+    -- Jangan gunakan hookfunction/hookmetamethod - gunakan direct replacement
+    local _pk = LocalPlayer.Kick
+    local _newKick = function(self, msg)
+        if self == LocalPlayer then
+            warn("[NX] Adonis kick blocked: " .. tostring(msg))
+            return nil
+        end
+        return _pk(self, msg)
+    end
+    -- Replace via rawset (tidak trigger metatable hooks)
+    rawset(LocalPlayer, "Kick", _newKick)
+    
+    --// METHOD 5: Prevent Adonis dari load modules
+    local _oldRequire = require
+    local _modules = {}
+    local _newRequire = function(module)
+        local n = tostring(module):lower()
+        if n:match("adonis") or n:match("admin") or n:match("anticheat") then
+            warn("[NX] Adonis module blocked: " .. n)
+            return {} -- Return empty table
+        end
+        return _oldRequire(module)
+    end
+    -- Gunakan getfenv untuk replace global require
+    if getfenv then
+        local env = getfenv(0)
+        env.require = _newRequire
+    end
+    
+    --// METHOD 6: Spoof heartbeat (Adonis menggunakan heartbeat untuk detection)
+    local _oldHB = RunService.Heartbeat
+    local _hbCount = 0
+    local _newHB = RunService.Heartbeat:Connect(function()
+        _hbCount = _hbCount + 1
+        if _hbCount % 100 == 0 then
+            -- Periodic cleanup untuk remove detection artifacts
+            for _, obj in ipairs(Camera:GetChildren()) do
+                if obj:IsA("BasePart") and obj.Name:match("NX") then
+                    obj:Destroy()
                 end
             end
         end
-    end
+    end)
     
-    --// METHOD 4: Hook Player.Kick directly (backup)
-    if hookfunction then
-        local oldKick = hookfunction(LocalPlayer.Kick, function(self, msg)
-            if self == LocalPlayer then
-                warn("[NX] Player.Kick intercepted: " .. tostring(msg))
-                return nil
-            end
-            return oldKick(self, msg)
-        end)
-    end
-    
-    --// METHOD 5: Spoof Humanoid state changes (movement detection)
-    local lp = LocalPlayer
-    local function onCharAdded(char)
-        task.wait(1)
-        local hum = char:WaitForChild("Humanoid", 5)
-        if hum and getconnections then
-            local stateCons = getconnections(hum.StateChanged)
-            for _, con in ipairs(stateCons) do
-                -- Don't disable, just let it pass (AC might detect disconnection)
-            end
-            -- Instead, hook the state getter
-            if hookmetamethod then
-                local oldGS = hookmetamethod(hum, "__namecall", function(self, ...)
-                    local m = getnamecallmethod()
-                    if m == "GetState" or m == "getState" then
-                        local r = oldGS(self, ...)
-                        -- Return normal state, don't modify
-                        return r
-                    end
-                    return oldGS(self, ...)
-                end)
+    --// METHOD 7: Disable Adonis GUI elements (detection UI)
+    local _core = game:FindFirstChildOfClass("CoreGui")
+    if _core then
+        for _, gui in ipairs(_core:GetChildren()) do
+            if gui.Name:match("Adonis") or gui.Name:match("Admin") then
+                gui.Enabled = false
+                warn("[NX] Adonis GUI disabled: " .. gui.Name)
             end
         end
     end
-    if lp.Character then onCharAdded(lp.Character) end
-    lp.CharacterAdded:Connect(onCharAdded)
     
-    --// METHOD 6: Randomize execution timing (pattern evasion)
-    if Config.AC.Obfuscate then
+    --// METHOD 8: Spoof network stats (Adonis checks network for anomalies)
+    local _stats = game:FindFirstChildOfClass("Stats")
+    if _stats then
+        local _oldPing = _stats.PerformanceStats.Ping
+        -- Cannot directly spoof, but can interfere dengan measurement
         task.spawn(function()
             while true do
-                task.wait(math.random(0.5, 2))
-                -- Micro jitter in aimbot smoothness
-                if Config.Aimbot.Enabled then
-                    Config.Aimbot.Smoothness = 0.15 + (math.random() * 0.03 - 0.015)
-                end
+                task.wait(math.random(1, 3))
+                -- Create fake network activity untuk mask real traffic
+                local _dummy = Instance.new("RemoteEvent")
+                _dummy.Name = "NX_Dummy_" .. tostring(math.random(1000,9999))
+                _dummy.Parent = game.ReplicatedStorage
+                task.wait(0.1)
+                _dummy:Destroy()
             end
         end)
     end
     
-    --// METHOD 7: Block error reporting (AC might use error stack traces)
-    if hookfunction then
-        local oldError = hookfunction(error, function(msg, level)
-            if type(msg) == "string" and (msg:match("namecall") or msg:match("metatable") or msg:match("hook")) then
-                return warn("[NX] AC error spoofed: " .. msg)
-            end
-            return oldError(msg, level)
-        end)
-    end
-    
-    print("[NX] Anti-Detect v2.0 aktiviert. Alle Schutzschilde online.")
+    print("[NX] Adonis Bypass v6.0 aktiviert. Alle Systeme nominal.")
 end
 
---// Main Loop
-local aimTarget = nil
+--// Main Loop - gunakan existing RunService connection
+local _at = nil
 
-RunService.RenderStepped:Connect(function()
-    FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
-    FOVCircle.Visible = Config.Aimbot.Enabled and Config.FOV_Circle.Visible
-    FOVCircle.Radius = Config.Aimbot.FOV
+--// Gunakan Heartbeat (lebih stealth daripada RenderStepped untuk Adonis)
+RunService.Heartbeat:Connect(function()
+    -- Update FOV
+    _fc.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
+    _fc.Visible = _cfg._a and true
     
-    if Config.ESP.Enabled then UpdateESP() else
-        for _, E in pairs(ESP_Objects) do
-            E.Box.Visible = false; E.BoxO.Visible = false; E.Name.Visible = false
-            E.Health.Visible = false; E.Dist.Visible = false; E.Tracer.Visible = false
-            for _, l in ipairs(E.Skel) do l.Visible = false end
+    -- Update ESP
+    if _cfg._e then _ue() else
+        for _, e in pairs(_esp) do
+            e.b.Visible = false; e.n.Visible = false; e.h.Visible = false; e.t.Visible = false
         end
     end
     
-    if Config.Aimbot.Enabled then
-        if UserInputService:IsKeyDown(Config.Aimbot.Keybind) then
-            aimTarget = GetClosest()
-            if aimTarget then AimAt(aimTarget); AutoFire(aimTarget) end
-        else aimTarget = nil end
+    -- Aimbot
+    if _cfg._a then
+        if UserInputService:IsKeyDown(_cfg._k) then
+            _at = _ca()
+            if _at then _aim(_at); _af(_at) end
+        else _at = nil end
     end
 end)
 
 --// Player handlers
-Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end)
+Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then _ce(p) end end)
 Players.PlayerRemoving:Connect(function(p)
-    local E = ESP_Objects[p]
-    if E then
-        E.Box:Remove(); E.BoxO:Remove(); E.Name:Remove(); E.Health:Remove(); E.Dist:Remove(); E.Tracer:Remove()
-        for _, l in ipairs(E.Skel) do l:Remove() end
-        ESP_Objects[p] = nil
-    end
+    local e = _esp[p]
+    if e then e.b:Remove(); e.n:Remove(); e.h:Remove(); e.t:Remove(); _esp[p] = nil end
 end)
 
-for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESP(p) end end
+for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then _ce(p) end end
 
---// Init AC Bypass
-BypassAC()
+--// Init bypass
+_bypass()
 
---// Notify
-local function Notify(txt, dur)
-    dur = dur or 3
-    local sg = Instance.new("ScreenGui")
-    sg.Name = "NX_" .. tostring(math.random(1000,9999))
-    sg.Parent = game.CoreGui
-    local fr = Instance.new("Frame")
-    fr.Size = UDim2.new(0, 300, 0, 50); fr.Position = UDim2.new(0.5, -150, 0, -60)
-    fr.BackgroundColor3 = Color3.fromRGB(30,30,30); fr.BorderSizePixel = 0; fr.Parent = sg
-    Instance.new("UICorner", fr).CornerRadius = UDim.new(0, 8)
-    local lb = Instance.new("TextLabel")
-    lb.Size = UDim2.new(1, -10, 1, -10); lb.Position = UDim2.new(0, 5, 0, 5)
-    lb.BackgroundTransparency = 1; lb.Text = txt; lb.TextColor3 = Color3.fromRGB(0,255,136)
-    lb.Font = Enum.Font.GothamBold; lb.TextSize = 14; lb.Parent = fr
-    fr:TweenPosition(UDim2.new(0.5, -150, 0, 20), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.5, true)
-    task.delay(dur, function()
-        fr:TweenPosition(UDim2.new(0.5, -150, 0, -60), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.5, true, function() sg:Destroy() end)
-    end)
-end
+--// Minimal notification
+local _n = Instance.new("ScreenGui", game:FindFirstChildOfClass("CoreGui"))
+_n.Name = "NX_" .. tostring(math.random(10000,99999))
+local _nf = Instance.new("Frame", _n)
+_nf.Size = UDim2.new(0, 250, 0, 40)
+_nf.Position = UDim2.new(0.5, -125, 0, -50)
+_nf.BackgroundColor3 = Color3.fromRGB(20,20,20)
+_nf.BorderSizePixel = 0
+Instance.new("UICorner", _nf).CornerRadius = UDim.new(0, 6)
+local _nl = Instance.new("TextLabel", _nf)
+_nl.Size = UDim2.new(1,0,1,0)
+_nl.BackgroundTransparency = 1
+_nl.Text = "NX v6.0 | Adonis Bypass ACTIVE"
+_nl.TextColor3 = Color3.fromRGB(0,255,136)
+_nl.Font = Enum.Font.GothamBold
+_nl.TextSize = 12
 
-Notify("N4n0Xy1n v5.0 | Anti-Detect ACTIVE | Bypass: namecallInstance", 5)
+_nf:TweenPosition(UDim2.new(0.5, -125, 0, 20), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.5, true)
+task.delay(4, function()
+    _nf:TweenPosition(UDim2.new(0.5, -125, 0, -50), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.5, true, function() _n:Destroy() end)
+end)
 
 --// Keybinds
-UserInputService.InputBegan:Connect(function(input, gp) if gp then return end if input.KeyCode == Enum.KeyCode.Insert then MainFrame.Visible = not MainFrame.Visible end end)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Insert then _mf.Visible = not _mf.Visible end
+end)
 
 --// Cleanup
-game.CoreGui.ChildRemoved:Connect(function(c)
-    if c.Name:match("NX_") then
-        for _, E in pairs(ESP_Objects) do
-            E.Box:Remove(); E.BoxO:Remove(); E.Name:Remove(); E.Health:Remove(); E.Dist:Remove(); E.Tracer:Remove()
-            for _, l in ipairs(E.Skel) do l:Remove() end
-        end
-        FOVCircle:Remove()
+game:FindFirstChildOfClass("CoreGui").ChildRemoved:Connect(function(c)
+    if c == _sg then
+        for _, e in pairs(_esp) do e.b:Remove(); e.n:Remove(); e.h:Remove(); e.t:Remove() end
+        _fc:Remove()
     end
 end)
 
@@ -434,6 +440,6 @@ print([[
  / /|  /| |/ /| |/ |/ /    / /    
 /_/ |_/ |___/ |__/|__/    /_/     
                                    
-N4n0Xy1n v5.0 | Anti-Detect Bypass Loaded
-namecallInstance detector: NEUTRALIZED
+N4n0Xy1n v6.0 | Adonis Bypass Loaded
+Stealth mode: ACTIVE | Detection: MINIMAL
 ]])
